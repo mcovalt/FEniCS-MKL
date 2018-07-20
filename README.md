@@ -24,7 +24,7 @@ Expect it to take a while. There's a lot of code to download and compile.
 Initialize the Docker container by running the image and mapping a chosen directory for the image to access.
 
 ```bash
-$ docker run -v '/a/local/directory':'/home/lol/shared' -it fenics-intel:latest
+$ docker run -v '/a/local/directory':'/home/lol/shared' -it fenics-mkl:latest
 ```
 
 Exit the image then find the container ID.
