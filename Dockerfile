@@ -1,4 +1,4 @@
-FROM ubuntu:16.04
+FROM ubuntu:18.04
 SHELL ["/bin/bash", "-c"]
 ARG intelkey
 ARG uid
@@ -24,24 +24,23 @@ ENV LANG=en_US.UTF-8 \
 ##########
 # FEniCS #
 ##########
-ENV MSHR_VERSION="2017.2.0" \
-    DOLFIN_VERSION="2017.2.0.post0" \
-    DOLFINADJOINT_VERSION="2017.2.0" \
-    FENICS_VERSION=">=2017.2.0,<2018.1.0"
+ENV MSHR_VERSION="2018.1.0" \
+    DOLFIN_VERSION="2018.1.0.post1" \
+    DOLFINADJOINT_VERSION="2018.1.0" \
+    FENICS_VERSION=">=2018.1.0,<2018.2.0"
 #########
 # Intel #
 #########
-ENV INTEL_VERSION_MAJOR="2018" \
-    INTEL_VERSION_MINOR="3"
+ENV INTEL_VERSION_MAJOR="2019"
 ###########
 # Compute #
 ###########
-ENV PETSC_VERSION="3.8.3" \
-    SLEPC_VERSION="3.8.2" \
-    PETSC4PY_VERSION="3.8.1" \
-    SLEPC4PY_VERSION="3.8.0" \
+ENV PETSC_VERSION="3.9.2" \
+    SLEPC_VERSION="3.9.1" \
+    PETSC4PY_VERSION="3.9.1" \
+    SLEPC4PY_VERSION="3.9.0" \
     IPOPT_VERSION="3.12.9" \
-    NUMPY_VERSION="1.14.5" \
+    NUMPY_VERSION="1.15.2" \
     SCIPY_VERSION="1.1.0"
 ################
 # Supplemental #
@@ -52,8 +51,8 @@ ENV HDF5_VERSION="1.8.21" \
     SWIG_VERSION="3.0.12" \
     MPI4PY_VERSION="3.0.0" \
     BOOST_VERSION="1.60.0" \
-    PYBIND11_VERSION="2.2.1" \
-    CYTHON_VERSION="0.28.2" \
+    PYBIND11_VERSION="2.2.3" \
+    CYTHON_VERSION="0.28.5" \
     BOOST_VERSION="1.60.0" \
     PCRE_VERSION="8.42" \
     SYMPY_VERSION="1.1.1"
@@ -73,7 +72,7 @@ RUN apt-get -q update && apt-get -q install -y --no-install-recommends \
         libfreetype6-dev \
         libgmp-dev \
         libmpfr-dev \
-        libpng12-dev \
+        libpng-dev \
         libstdc++6 \
         nano \
         pkg-config \
@@ -94,7 +93,7 @@ WORKDIR /tmp
 ############################
 COPY intel.cfg /tmp/intel.cfg
 RUN name="intel" \
- && url="http://registrationcenter-download.intel.com/akdlm/irc_nas/tec/12998/parallel_studio_xe_${INTEL_VERSION_MAJOR}_update${INTEL_VERSION_MINOR}_cluster_edition_online.tgz" \
+ && url="http://registrationcenter-download.intel.com/akdlm/irc_nas/tec/13589/parallel_studio_xe_${INTEL_VERSION_MAJOR}_cluster_edition_online.tgz" \
  && mkdir /tmp/$name && wget -nv -O - ${url} | tar xz -C /tmp/$name --strip-components=1 && cd /tmp/$name \
  && echo "ACTIVATION_SERIAL_NUMBER=${intelkey}" >> /tmp/intel.cfg \
  && ./install.sh -s /tmp/intel.cfg \
@@ -112,7 +111,7 @@ RUN name="intel" \
 ###################
 RUN echo "#!/bin/bash" > /usr/local/bin/vars.sh \
  && echo "export BUILD_THREADS=$( nproc )" >> /usr/local/bin/vars.sh \
- && echo "export INTEL_MAJOR_VERSION=2018" >> /usr/local/bin/vars.sh \
+ && echo "export INTEL_MAJOR_VERSION=2019" >> /usr/local/bin/vars.sh \
  && echo "source /opt/intel/parallel_studio_xe_\${INTEL_MAJOR_VERSION}/bin/psxevars.sh > /dev/null" >> /usr/local/bin/vars.sh \
  && echo "export CC=icc" >> /usr/local/bin/vars.sh \
  && echo "export CXX=icpc" >> /usr/local/bin/vars.sh \
@@ -257,23 +256,6 @@ RUN name="pcre" \
  && echo "export PCRE_DIR=/opt/pcre" >> /usr/local/bin/vars.sh \
  && echo "export LD_LIBRARY_PATH=/opt/pcre/lib:\$LD_LIBRARY_PATH" >> /usr/local/bin/vars.sh \
  && rm -rf /tmp/* /var/tmp/*
-########
-# SWIG #
-########
-RUN name="swig" \
- && url="http://downloads.sourceforge.net/swig/swig-${SWIG_VERSION}.tar.gz" \
- && mkdir /tmp/$name && wget -nv -O - ${url} | tar xz -C /tmp/$name --strip-components=1 && cd /tmp/$name \
- && source /usr/local/bin/vars.sh \
-    # Build
- && ./configure \
-        --without-octave \
-        --without-java \
-        --with-pcre-prefix=${PCRE_DIR} \
-        --prefix=/opt/swig \
- && make -j ${BUILD_THREADS} && make install \
- && echo "export SWIG_DIR=/opt/swig" >> /usr/local/bin/vars.sh \
- && echo "export PATH=/opt/swig/bin:\${PATH}" \
- && rm -rf /tmp/* /var/tmp/*
 ############
 # pybind11 #
 ############
@@ -411,37 +393,27 @@ RUN name="dolfin" \
         -DCMAKE_C_COMPILER=mpiicc \
         -DCMAKE_C_FLAGS="-O3 -xHost -ip -mkl" \
         -DCMAKE_Fortran_COMPILER=mpiifort \
-        -DCMAKE_Fortran_FLAGS="-O3 -xHost -ip -mkl" \
         -DCMAKE_VERBOSE_MAKEFILE=ON \
         -DHDF5_C_COMPILER_EXECUTABLE=${HDF5_DIR}/bin/h5pcc \
         -DHDF5_hdf5_LIBRARY_RELEASE=${HDF5_DIR}/lib/libhdf5.so \
-        -DHDF5_z_LIBRARY_RELEASE=${ZLIB_DIR}/lib/libz.so \
-        -DPETSC_DIR=${PETSC_DIR} \
-        -DSLEPC_DIR=${SLEPC_DIR} \
-        -DDOLFIN_ENABLE_SPHINX=OFF \
         -DDOLFIN_ENABLE_UMFPACK=ON \
         -DDOLFIN_ENABLE_CHOLMOD=ON \
         -DZLIB_LIBRARY=${ZLIB_DIR}/lib/libz.a \
         -DZLIB_INCLUDE_DIR=${ZLIB_DIR}/include \
-        -DDOLFIN_ENABLE_PASTIX=OFF \
         -DDOLFIN_ENABLE_TRILINOS=OFF \
         -DDOLFIN_ENABLE_BENCHMARKS=ON \
-        -DDOLFIN_ENABLE_VTK=OFF \
-        -DDOLFIN_ENABLE_QT=OFF \
         -DDOLFIN_AUTO_DETECT_MPI=ON \
         -DMPI_CXX_COMPILER=$( which mpiicpc ) \
         -DMPI_C_COMPILER=$( which mpiicc ) \
-        -DMPI_Fortran_COMPILER=$( which mpiifort ) \
         -DHDF5_LIBRARIES=${HDF5_DIR}/lib/libhdf5.so \
         -DHDF5_C_COMPILER_EXECUTABLE=${HDF5_DIR}/bin/h5pcc \
         -DHDF5_hdf5_LIBRARY_RELEASE=${HDF5_DIR}/lib/libhdf5.so \
         -DPYTHON_EXECUTABLE:FILEPATH=$( which python3 ) \
         -DBOOST_ROOT=${BOOST_DIR} \
-        -DSWIG_DIR=${SWIG_DIR} \
-        -DSWIG_EXECUTABLE=${SWIG_DIR}/bin/swig \
         ../ \
  && make -j ${BUILD_THREADS} && make install \
- && echo "source /usr/local/share/dolfin/dolfin.conf" >> /usr/local/bin/vars.sh \
+ && cd ../python \
+ && pip3 --no-cache-dir install . --no-binary :all: \
  && rm -rf /tmp/* /var/tmp/*
 #########
 # meshr #
@@ -453,7 +425,7 @@ RUN name="meshr" \
     # Build
  && mkdir build \
  && cd build \
- && cmake ../ \
+ && cmake -DCMAKE_BUILD_TYPE=Release ../ \
  && make -j ${BUILD_THREADS} && make install \
  && rm -rf /tmp/* /var/tmp/*
 #########
@@ -492,6 +464,12 @@ RUN name="pyipopt" \
  && LDSHARED='icc -shared' python3 setup.py build \
  && python3 setup.py install \
  && rm -rf /tmp/* /var/tmp/*
+##############
+# tensorflow #
+##############
+RUN source /usr/local/bin/vars.sh \
+ && pip3 --no-cache-dir install \
+        tensorflow
 #############
 # pyadjoint #
 #############
